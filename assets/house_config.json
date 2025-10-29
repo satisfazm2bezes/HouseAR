@@ -1,0 +1,9 @@
+{
+  "modelUri": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+  "nodeType": "webGLB",
+  "gpsCoordinates": [38.758253710138824, -9.272492890642507],
+  "scale": 5,
+  "rotationDegrees": 0.0,
+  "altitude": 170,
+  "name": "Casa Teste GPS"
+}

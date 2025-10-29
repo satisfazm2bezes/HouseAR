@@ -1,0 +1,9 @@
+{
+  "modelUri": "https://seu-servidor.com/models/casa-moderna.glb",
+  "nodeType": "webGLB",
+  "gpsCoordinates": [38.7223, -9.1393],
+  "scale": 1.0,
+  "rotationDegrees": 180.0,
+  "altitude": 100.0,
+  "name": "Casa Moderna em Lisboa"
+}

@@ -1,0 +1,90 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "HouseAR Cube Generator"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [0]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "HouseCube"
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [0.2, 0.5, 0.8, 1.0],
+        "metallicFactor": 0.1,
+        "roughnessFactor": 0.9
+      },
+      "name": "BlueCubeMaterial"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3",
+      "max": [2.0, 2.0, 2.0],
+      "min": [-2.0, 0.0, -2.0]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 24,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5123,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 288,
+      "byteLength": 288,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 576,
+      "byteLength": 72,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 648,
+      "uri": "data:application/octet-stream;base64,AAAAQAAAAAAAAAAAAIA/AAAAAAAAgD8AAACAAAAAQAAAAAAAAAAAAIA/AACAPwAAgD8AAACAAAAAQAAAAAAAAIA/AAAAAAAAgD8AAACAAACAPwAAgD8AAACAAAAAQAAAAAAAAIA/AACAPwAAgD8AAACAAAAAQAAAAAAAAAAAAIA/AAAAAAAAgD8AAACAAAAAQAAAAAAAAACAAAAAAAAAAAAAAIA/AACAPwAAAAAAAACAAACAPwAAgD8AAACAAAAAQAAAAAAAAACAAAAAAAAAAAAAAIA/AAAAAAAAgD8AAACAAAAAQAAAAAAAAACAAACAPwAAAAAAAIA/AACAPwAAAAAAAACAAACAPwAAAAAAAACAAAAAAAAAgD8AAACAAAAAQAAAAAAAAACAAACAP2AAAAAAAIA/AAAAAAAAgD8AAACAAAAAQAAAAAAAAACAAACAP2AAgD8AAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAIA/AAAAAAAAgD8AAACAAAAAQAAAAAAAAACAAACAP2AAAAAAAIA/AAAAAAAAgD8AAACAAAAAQAAAAAAAAIA/AACAPwAAgD8AAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAEAAgADAAIAAQAEAAUABgAHAAYABQAIAAkACgALAAoACQAMAA0ADgAPAA4ADQAQABEAEgATABIAEQAUABUAFgAXABYAFQA="
+    }
+  ]
+}
