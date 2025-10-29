@@ -42,6 +42,9 @@ dependencies:
   
   # GPS para calcular offset
   geolocator: ^12.0.0
+  
+  # Runtime permissions
+  permission_handler: ^11.4.0
 
 dev_dependencies:
   flutter_test:

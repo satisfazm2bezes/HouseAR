@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'package:geolocator/geolocator.dart';
 
@@ -28,7 +29,7 @@ class GPSCalculator {
     return gpsToLocalPositionFrom(
       currentLat: currentPosition.latitude,
       currentLon: currentPosition.longitude,
-      currentAlt: currentPosition.altitude ?? 0.0,
+      currentAlt: currentPosition.altitude,
       targetLat: targetLat,
       targetLon: targetLon,
       targetAlt: targetAlt,
@@ -59,12 +60,14 @@ class GPSCalculator {
         earthRadius; // Norte-Sul (negativo porque ARCore usa -Z como frente)
     final deltaY = targetAlt - currentAlt; // Altitude
 
-    print('🧭 [GPS] Posição atual: $currentLat, $currentLon, ${currentAlt}m');
-    print('🎯 [GPS] Alvo: $targetLat, $targetLon, ${targetAlt}m');
-    print(
+    debugPrint(
+      '🧭 [GPS] Posição atual: $currentLat, $currentLon, ${currentAlt}m',
+    );
+    debugPrint('🎯 [GPS] Alvo: $targetLat, $targetLon, ${targetAlt}m');
+    debugPrint(
       '📏 [GPS] Delta: X=${deltaX.toStringAsFixed(1)}m, Y=${deltaY.toStringAsFixed(1)}m, Z=${deltaZ.toStringAsFixed(1)}m',
     );
-    print(
+    debugPrint(
       '📐 [GPS] Distância horizontal: ${sqrt(deltaX * deltaX + deltaZ * deltaZ).toStringAsFixed(1)}m',
     );
 

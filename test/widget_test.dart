@@ -8,13 +8,14 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:house_ar/main.dart';
+import 'package:house_ar/screens/geospatial_camera_screen.dart';
 
 void main() {
   testWidgets('HouseAR app smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const HouseARApp());
 
-    // Verify that the app bar title is correct.
-    expect(find.text('HouseAR'), findsOneWidget);
+    // Verify that the home screen is the geospatial camera screen.
+    expect(find.byType(GeospatialCameraScreen), findsOneWidget);
   });
 }

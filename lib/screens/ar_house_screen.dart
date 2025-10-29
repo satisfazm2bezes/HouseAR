@@ -94,14 +94,14 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
                           return Column(
                             children: [
                               Text(
-                                data['lat'] + ', ' + data['lon'],
+                                '${data['lat']}, ${data['lon']}',
                                 style: const TextStyle(
                                   color: Colors.greenAccent,
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
-                                'Altitude: ' + data['alt'] + 'm',
+                                'Altitude: ${data['alt']}m',
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 11,
@@ -129,7 +129,7 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
     ARAnchorManager arAnchorManager,
     ARLocationManager arLocationManager,
   ) async {
-    print('🎥 AR View criada!');
+    debugPrint('🎥 AR View criada!');
 
     ref.read(arSessionManagerProvider.notifier).state = arSessionManager;
     ref.read(arObjectManagerProvider.notifier).state = arObjectManager;
@@ -142,8 +142,49 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
       handleTaps: false,
     );
 
-    await arObjectManager.onInitialize();
-    print('✅ AR managers inicializados!');
+    // Tentativa defensiva de inicializar o ARObjectManager — alguns dispositivos/plugins
+    // podem registrar canais de plataforma de forma assíncrona. Vamos tentar algumas
+    // vezes antes de falhar para reduzir MissingPluginException intermitente.
+    const maxInitAttempts = 4;
+    var initAttempt = 0;
+    var initOk = false;
+    while (initAttempt < maxInitAttempts && !initOk) {
+      try {
+        initAttempt++;
+        await arObjectManager.onInitialize();
+        initOk = true;
+      } catch (e, st) {
+        debugPrint(
+          '⚠️ arObjectManager.onInitialize falhou (tentativa $initAttempt): $e\n$st',
+        );
+        // Se for MissingPluginException, aguarda e tenta novamente
+        if (e is MissingPluginException) {
+          await Future.delayed(const Duration(milliseconds: 600));
+          continue;
+        }
+        // Para outros erros, não tentamos indefinidamente — relança para ser tratado acima
+        rethrow;
+      }
+    }
+
+    if (!initOk) {
+      debugPrint(
+        '❌ Falha ao inicializar ARObjectManager depois de $maxInitAttempts tentativas.',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Falha ao inicializar gerenciador AR (MissingPlugin) — veja logs',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } else {
+      debugPrint('✅ AR managers inicializados!');
+    }
 
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) _placeModelWithGPS();
@@ -151,7 +192,7 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
   }
 
   Future<void> _placeModelWithGPS() async {
-    print('🚀 GPS PURO ativado (SEM ARCore Geospatial API)');
+    debugPrint('🚀 GPS PURO ativado (SEM ARCore Geospatial API)');
 
     try {
       setState(() {
@@ -167,7 +208,7 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
         throw Exception('GPS coordinates nao configuradas');
       }
 
-      print(
+      debugPrint(
         '🎯 Alvo GPS: ${config.gpsCoordinates![0]}, ${config.gpsCoordinates![1]}, ${config.altitude}m',
       );
 
@@ -188,15 +229,15 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
         _statusMessage = 'Obtendo sua posição GPS...';
       });
 
-      print('📡 Aguardando GPS...');
+      debugPrint('📡 Aguardando GPS...');
       final currentPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
 
-      print(
+      debugPrint(
         '📍 Você está em: ${currentPosition.latitude}, ${currentPosition.longitude}, ${currentPosition.altitude}m',
       );
-      print('🎯 Precisão GPS: ${currentPosition.accuracy}m');
+      debugPrint('🎯 Precisão GPS: ${currentPosition.accuracy}m');
 
       setState(() {
         _statusMessage = 'Calculando posição local...';
@@ -205,7 +246,7 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
       final localPosition = GPSCalculator.gpsToLocalPositionFrom(
         currentLat: currentPosition.latitude,
         currentLon: currentPosition.longitude,
-        currentAlt: currentPosition.altitude ?? 0.0,
+        currentAlt: currentPosition.altitude,
         targetLat: config.gpsCoordinates![0],
         targetLon: config.gpsCoordinates![1],
         targetAlt: config.altitude,
@@ -218,8 +259,8 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
         lon2: config.gpsCoordinates![1],
       );
 
-      print('📏 Distância: ${distance.toStringAsFixed(1)}m');
-      print(
+      debugPrint('📏 Distância: ${distance.toStringAsFixed(1)}m');
+      debugPrint(
         '📐 Posição AR: X=${localPosition.x.toStringAsFixed(1)}, Y=${localPosition.y.toStringAsFixed(1)}, Z=${localPosition.z.toStringAsFixed(1)}',
       );
 
@@ -250,11 +291,29 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
         _statusMessage = 'Adicionando modelo 3D...';
       });
 
-      print('🎨 Adicionando à cena AR...');
-      final result = await ref.read(arObjectManagerProvider)?.addNode(node);
+      debugPrint('🎨 Adicionando à cena AR...');
+      bool? result;
+      // Adiciona tentativa/retry para MissingPluginException no momento de adicionar nó (comum em casos de
+      // registro de plugins não disponível imediatamente).
+      const maxAddAttempts = 4;
+      var addAttempt = 0;
+      while (addAttempt < maxAddAttempts) {
+        try {
+          addAttempt++;
+          result = await ref.read(arObjectManagerProvider)?.addNode(node);
+          break;
+        } catch (e, st) {
+          debugPrint('⚠️ addNode falhou (tentativa $addAttempt): $e\n$st');
+          if (e is MissingPluginException) {
+            await Future.delayed(const Duration(milliseconds: 600));
+            continue;
+          }
+          rethrow;
+        }
+      }
 
       if (result == true) {
-        print('🎉 SUCESSO! Modelo colocado com GPS puro!');
+        debugPrint('🎉 SUCESSO! Modelo colocado com GPS puro!');
         ref.read(houseNodeProvider.notifier).state = node;
         ref.read(isModelPlacedProvider.notifier).state = true;
         setState(() {
@@ -262,10 +321,12 @@ class _ARHouseScreenState extends ConsumerState<ARHouseScreen> {
               'Modelo a ${distance.toStringAsFixed(0)}m (precisão ~${currentPosition.accuracy.toStringAsFixed(0)}m)';
         });
       } else {
-        throw Exception('addNode retornou false');
+        throw Exception(
+          'addNode retornou false ou não foi possível inicializar o canal nativo',
+        );
       }
     } catch (e) {
-      print('❌ Erro: $e');
+      debugPrint('❌ Erro: $e');
       setState(() {
         _statusMessage = 'Erro: $e';
       });

@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 /// Serviço para comunicação com ARCore Geospatial API (Android nativo)
 ///
@@ -23,7 +24,7 @@ class GeospatialService {
       final result = await _channel.invokeMethod<bool>('initializeGeospatial');
       return result ?? false;
     } catch (e) {
-      print('❌ Erro ao inicializar Geospatial: $e');
+      debugPrint('❌ Erro ao inicializar Geospatial: $e');
       return false;
     }
   }
@@ -62,7 +63,7 @@ class GeospatialService {
         'accuracy': result['accuracy'] as double? ?? 999.0,
       };
     } catch (e) {
-      print('❌ Erro ao verificar VPS: $e');
+      debugPrint('❌ Erro ao verificar VPS: $e');
       return {
         'available': false,
         'latitude': 0.0,
@@ -125,7 +126,7 @@ class GeospatialService {
         'rotationW': result['rotationW'] as double? ?? 1.0,
       };
     } catch (e) {
-      print('❌ Erro ao criar Earth Anchor: $e');
+      debugPrint('❌ Erro ao criar Earth Anchor: $e');
       return {'success': false};
     }
   }
@@ -138,7 +139,7 @@ class GeospatialService {
       });
       return result ?? false;
     } catch (e) {
-      print('❌ Erro ao remover Earth Anchor: $e');
+      debugPrint('❌ Erro ao remover Earth Anchor: $e');
       return false;
     }
   }
@@ -166,7 +167,7 @@ class GeospatialService {
         'rotationW': result['rotationW'] as double? ?? 1.0,
       };
     } catch (e) {
-      print('❌ Erro ao obter pose do anchor: $e');
+      debugPrint('❌ Erro ao obter pose do anchor: $e');
       return {'success': false};
     }
   }

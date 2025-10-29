@@ -30,6 +30,7 @@ class ArGeospatialController {
 class ArGeospatialCameraView extends StatefulWidget {
   final ArGeospatialController? controller;
 
+  /// Use a key to force recreate the underlying platform view when needed
   const ArGeospatialCameraView({super.key, this.controller});
 
   @override

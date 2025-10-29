@@ -114,3 +114,8 @@ void dispose() {
 - Test AR features only on physical devices with ARCore/ARKit
 - Vector3 positions use meters (real-world scale)
 - Default model placement is 2 meters in front of user at startup
+ 
+## Regras obrigatórias para agentes de IA (debug)
+- O agente de IA responsável por editar o código DEVE executar um debug completo antes de finalizar qualquer PR/edição que altere código: executar em sequência `flutter pub get`, `flutter analyze`, `flutter test` e, quando aplicável para AR, `flutter run` em dispositivo físico.
+- Corrija todos os erros do analisador e falhas de teste até que `flutter analyze` retorne "No issues found" e `flutter test` passe, ou documente claramente quaisquer limitações que impeçam resolução (por exemplo, hardware físico necessário).
+- Registre no commit ou na descrição do PR quais comandos foram executados e o resultado (analyzer/testes), e inclua notas breves sobre validações manuais (ex.: validação AR em dispositivo X).

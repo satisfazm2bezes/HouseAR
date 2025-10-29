@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,18 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
   }
 
   Future<void> _initialize() async {
+    // Ensure camera permission is granted before initializing Geospatial AR
+    final cameraStatus = await Permission.camera.status;
+    if (!cameraStatus.isGranted) {
+      final req = await Permission.camera.request();
+      if (!req.isGranted) {
+        setState(() {
+          _statusMessage = 'Permissão de câmera necessária para AR.';
+        });
+        // Stop initialization if camera not granted
+        return;
+      }
+    }
     try {
       // Carregar configuração
       final jsonString = await rootBundle.loadString(
@@ -238,8 +251,8 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withOpacity(0.9),
-                    Colors.black.withOpacity(0.0),
+                    Colors.black.withAlpha((0.9 * 255).toInt()),
+                    Colors.black.withAlpha((0.0 * 255).toInt()),
                   ],
                 ),
               ),
