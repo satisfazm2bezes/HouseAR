@@ -31,8 +31,8 @@
         <!-- 4. Restringir a chave ao package: com.housear.house_ar -->
         <!-- 5. Substituir YOUR_API_KEY_HERE pela chave real -->
         <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBUa0-QAMVwAfQ5ee1o6ZLadVM-j4dFPFU" />
+            android:name="com.google.android.ar.API_KEY"
+            android:value="AIzaSyDNFgrVrGDS0cCJxo2YtE58OXW-iZtICNA" />
             
         <activity
             android:name=".MainActivity"
