@@ -38,6 +38,10 @@ class ArGeospatialView(
     private var session: Session? = null
     private val channel = MethodChannel(messenger, "house_ar/geospatial_view_$id")
     private var textureId = -1
+    private var backgroundRenderer: BackgroundRenderer? = null
+    private var cubeRenderer: CubeRenderer? = null
+    private val anchors: MutableList<Anchor> = mutableListOf()
+    private var modelPlaced = false
     
     init {
         Log.d(TAG, "🎬 ArGeospatialView criado")
@@ -62,10 +66,12 @@ class ArGeospatialView(
         Log.d(TAG, "🖼️ Surface criada")
         
         try {
-            // Criar textura para câmera
-            val textures = IntArray(1)
-            GLES20.glGenTextures(1, textures, 0)
-            textureId = textures[0]
+            // Inicializar renderer de background para desenhar a câmera
+            backgroundRenderer = BackgroundRenderer().also { it.createOnGlThread(glSurfaceView.context) }
+            textureId = backgroundRenderer?.textureId ?: -1
+
+            // Inicializar renderer do cubo
+            cubeRenderer = CubeRenderer().also { it.createOnGlThread(glSurfaceView.context) }
             
             // Criar session
             session = Session(glSurfaceView.context).apply {
@@ -77,7 +83,14 @@ class ArGeospatialView(
                 setCameraTextureName(textureId)
             }
             
-            GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
+            // Resume session
+            session?.resume()
+            
+            // Limpar anchors
+            anchors.clear()
+            modelPlaced = false
+            
+            GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
             Log.d(TAG, "✅ ARCore + Geospatial inicializado!")
             
         } catch (e: Exception) {
@@ -87,7 +100,8 @@ class ArGeospatialView(
     
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         GLES20.glViewport(0, 0, width, height)
-        session?.setDisplayGeometry(0, width, height)
+        session?.setDisplayGeometry(android.view.Surface.ROTATION_0, width, height)
+        Log.d(TAG, "📐 Surface changed: ${width}x${height}")
     }
     
     override fun onDrawFrame(gl: GL10?) {
@@ -95,31 +109,88 @@ class ArGeospatialView(
         
         session?.let { s ->
             try {
-                s.resume()
                 val frame = s.update()
                 
-                // Apenas processamento VPS - sem rendering visual por enquanto
+                // Desenhar fundo da câmera
+                backgroundRenderer?.draw(frame)
+                
+                // Processar Earth e tentar colocar modelo
                 val earth = s.earth
-                if (earth?.trackingState == TrackingState.TRACKING) {
-                    // VPS funcionando!
+                if (earth != null) {
+                    // Tentar colocar modelo automaticamente
+                    tryAutoPlaceModel()
+                    
+                    // Desenhar anchors
+                    if (anchors.isNotEmpty()) {
+                        val viewMatrix = FloatArray(16)
+                        val projMatrix = FloatArray(16)
+                        frame.camera.getViewMatrix(viewMatrix, 0)
+                        frame.camera.getProjectionMatrix(projMatrix, 0, 0.01f, 1000.0f)
+                        
+                        val it = anchors.iterator()
+                        while (it.hasNext()) {
+                            val anchor = it.next()
+                            when (anchor.trackingState) {
+                                TrackingState.TRACKING -> {
+                                    val modelMatrix = FloatArray(16)
+                                    anchor.pose.toMatrix(modelMatrix, 0)
+                                    cubeRenderer?.draw(modelMatrix, viewMatrix, projMatrix)
+                                }
+                                TrackingState.STOPPED -> {
+                                    it.remove()
+                                    anchor.detach()
+                                }
+                                else -> {} // PAUSED
+                            }
+                        }
+                    }
                 }
             } catch (e: CameraNotAvailableException) {
                 Log.e(TAG, "❌ Câmera indisponível")
             } catch (e: Exception) {
-                // Ignorar
+                Log.e(TAG, "❌ Erro: ${e.message}", e)
             }
+        }
+    }
+    
+    private fun tryAutoPlaceModel() {
+        if (modelPlaced) return
+        if (anchors.isNotEmpty()) return
+        
+        val earth = session?.earth ?: return
+        if (earth.earthState != Earth.EarthState.ENABLED) return
+        if (earth.trackingState != TrackingState.TRACKING) return
+        
+        try {
+            // Coordenadas do house_config.json
+            val lat = 38.758253710138824
+            val lon = -9.272492890642507
+            val alt = 170.0
+            
+            placeModel(lat, lon, alt)
+            Log.d(TAG, "✅ Modelo colocado nas coordenadas GPS")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Erro ao criar anchor GPS: ${e.message}", e)
         }
     }
     
     private fun placeModel(lat: Double, lon: Double, alt: Double) {
         try {
             val earth = session?.earth
-            if (earth?.trackingState == TrackingState.TRACKING) {
-                val anchor = earth.createAnchor(lat, lon, alt, 0f, 0f, 0f, 1f)
-                Log.d(TAG, "⚓ Anchor criado: $lat, $lon")
+            if (earth != null && earth.earthState == Earth.EarthState.ENABLED) {
+                try {
+                    val anchor = earth.createAnchor(lat, lon, alt, 0f, 0f, 0f, 1f)
+                    anchors.add(anchor)
+                    modelPlaced = true
+                    Log.d(TAG, "⚓ Anchor criado na posição GPS: lat=$lat, lon=$lon, alt=$alt")
+                } catch (inner: Exception) {
+                    Log.e(TAG, "❌ Falha ao criar anchor: ${inner.message}", inner)
+                }
+            } else {
+                Log.w(TAG, "⚠️ Earth não habilitado - não é possível criar anchor")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erro criar anchor: ${e.message}")
+            Log.e(TAG, "❌ Erro criar anchor: ${e.message}", e)
         }
     }
     
@@ -146,7 +217,15 @@ class ArGeospatialView(
     override fun dispose() {
         Log.d(TAG, "🧹 Dispose")
         glSurfaceView.onPause()
+        try {
+            anchors.forEach { it.detach() }
+            anchors.clear()
+        } catch (e: Exception) {
+            Log.w(TAG, "Erro ao detach anchors: ${e.message}")
+        }
         session?.pause()
         session?.close()
+        cubeRenderer = null
+        backgroundRenderer = null
     }
 }

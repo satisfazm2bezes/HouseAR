@@ -269,6 +269,59 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 12),
+
+                  // Check indicators: Earth, Tracking, Precision
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: _buildCheckCard(
+                          label: 'Earth',
+                          ok: (_status?.earthState ?? 'UNKNOWN') == 'ENABLED',
+                          detail: _status?.earthState ?? 'UNKNOWN',
+                          hint: _status == null
+                              ? 'Aguardando...'
+                              : (_status!.earthState == 'ENABLED'
+                                    ? 'OK'
+                                    : 'Verifique API key'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildCheckCard(
+                          label: 'Tracking',
+                          ok:
+                              (_status?.trackingState ?? 'UNKNOWN') ==
+                              'TRACKING',
+                          detail: _status?.trackingState ?? 'UNKNOWN',
+                          hint: _status == null
+                              ? 'Aguardando...'
+                              : (_status!.trackingState == 'TRACKING'
+                                    ? 'VPS ativo'
+                                    : 'Gire 360°'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildCheckCard(
+                          label: 'Precisão',
+                          ok:
+                              (_status?.horizontalAccuracy ?? double.infinity) <
+                              5.0,
+                          detail: _status != null
+                              ? '${_status!.horizontalAccuracy.toStringAsFixed(1)}m'
+                              : 'N/A',
+                          hint: _status == null
+                              ? 'Aguardando...'
+                              : (_status!.horizontalAccuracy < 5.0
+                                    ? 'Boa'
+                                    : 'Aguarde'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   if (_status != null) ...[
                     const SizedBox(height: 12),
                     _buildStatusRow(
@@ -329,6 +382,57 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckCard({
+    required String label,
+    required bool ok,
+    required String detail,
+    required String hint,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: ok ? Colors.greenAccent : Colors.orangeAccent,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ok ? Icons.check_circle : Icons.error_outline,
+                color: ok ? Colors.greenAccent : Colors.orangeAccent,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            detail,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hint,
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
         ],
       ),
