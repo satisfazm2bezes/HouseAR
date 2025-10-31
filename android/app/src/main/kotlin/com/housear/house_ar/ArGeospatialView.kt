@@ -105,8 +105,8 @@ class ArGeospatialView(
         
         // Obter rotação real do dispositivo
         val activity = getActivity(context)
-        val rotation = activity?.windowManager?.defaultDisplay?.rotation 
-            ?: android.view.Surface.ROTATION_0
+        val display = activity?.windowManager?.defaultDisplay
+        val rotation = display?.rotation ?: android.view.Surface.ROTATION_0
         
         val rotationName = when(rotation) {
             android.view.Surface.ROTATION_0 -> "PORTRAIT (0°)"
@@ -116,8 +116,24 @@ class ArGeospatialView(
             else -> "UNKNOWN"
         }
         
-        session?.setDisplayGeometry(rotation, width, height)
-        Log.d(TAG, "📐 Surface changed: ${width}x${height}, rotation=$rotation ($rotationName)")
+        // IMPORTANTE: ARCore precisa de width/height DEPOIS de aplicar rotação
+        // Se rotation=90 ou 270, width e height podem estar invertidos
+        val displayWidth: Int
+        val displayHeight: Int
+        
+        if (rotation == android.view.Surface.ROTATION_90 || rotation == android.view.Surface.ROTATION_270) {
+            // Landscape - inverter dimensões
+            displayWidth = height
+            displayHeight = width
+            Log.d(TAG, "📐 Surface LANDSCAPE - invertendo: $displayWidth x $displayHeight")
+        } else {
+            // Portrait - usar dimensões normais
+            displayWidth = width
+            displayHeight = height
+        }
+        
+        session?.setDisplayGeometry(rotation, displayWidth, displayHeight)
+        Log.d(TAG, "📐 Surface changed: ${width}x${height} → ${displayWidth}x${displayHeight}, rotation=$rotation ($rotationName)")
     }
     
     private fun getActivity(context: Context?): Activity? {

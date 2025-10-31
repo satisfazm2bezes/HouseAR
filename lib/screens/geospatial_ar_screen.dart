@@ -82,14 +82,9 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
         setState(() {
           _statusMessage =
               'VPS ativo! Posição: ${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)} '
-              '(±${accuracy.toStringAsFixed(1)}m)';
+              '(±${accuracy.toStringAsFixed(1)}m)\n\n'
+              'Aguarde precisão < 1m para colocar modelo...';
         });
-
-        // Aguardar 2s para estabilizar
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Colocar modelo
-        await _placeModel();
       }
     } on GeospatialException catch (e) {
       // Tratar erros específicos de Geospatial
@@ -185,6 +180,8 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
   }
 
   void _startStatusPolling() {
+    bool modelPlaced = false;
+
     Future.doWhile(() async {
       if (!mounted) return false;
 
@@ -197,6 +194,18 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
           print(
             '📊 Status atualizado: ${status.earthState}, ${status.trackingState}, ${status.horizontalAccuracy}m',
           );
+
+          // Colocar modelo automaticamente quando precisão < 1m
+          if (!modelPlaced &&
+              status.earthState == 'ENABLED' &&
+              status.trackingState == 'TRACKING' &&
+              status.horizontalAccuracy < 1.0) {
+            modelPlaced = true;
+            print(
+              '✅ Precisão boa (${status.horizontalAccuracy.toStringAsFixed(2)}m) - colocando modelo!',
+            );
+            _placeModel();
+          }
         }
       } catch (e) {
         print('❌ Erro polling: $e');

@@ -68,9 +68,13 @@ class MainActivity : FlutterActivity() {
                     "getStatus" -> {
                         // Usar ArGeospatialView se disponível, caso contrário GeospatialARManager
                         val activeView = ArGeospatialViewFactory.activeView
+                        android.util.Log.d("MainActivity", "🔍 getStatus chamado - activeView=${activeView != null}")
                         if (activeView != null) {
-                            result.success(activeView.getVPSStatus())
+                            val status = activeView.getVPSStatus()
+                            android.util.Log.d("MainActivity", "✅ Status do ArGeospatialView: $status")
+                            result.success(status)
                         } else {
+                            android.util.Log.w("MainActivity", "⚠️ ArGeospatialView null - usando GeospatialARManager")
                             geospatialManager?.getStatus(result)
                         }
                     }

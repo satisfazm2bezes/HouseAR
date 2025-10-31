@@ -30,6 +30,12 @@ class _GeospatialCameraScreenState
   // key to force recreation of the platform view if native layer misbehaves
   Key _arViewKey = UniqueKey();
 
+  // Status VPS detalhado
+  String _earthState = 'UNKNOWN';
+  String _trackingState = 'UNKNOWN';
+  double _horizontalAccuracy = 999.0;
+  bool _vpsActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -101,25 +107,21 @@ class _GeospatialCameraScreenState
         if (status != null && mounted) {
           _nativeFailureCount = 0; // reset failures when we get a result
           final tracking = status['tracking'] as bool? ?? false;
-          final lat = status['latitude'] as double? ?? 0.0;
-          final lon = status['longitude'] as double? ?? 0.0;
           final accuracy = status['accuracy'] as double? ?? 999.0;
+          final earthState = status['earthState'] as String? ?? 'UNKNOWN';
+          final trackingState = status['trackingState'] as String? ?? 'UNKNOWN';
 
           setState(() {
-            if (tracking) {
-              _statusMessage =
-                  '✅ VPS ATIVO\n📍 ${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}\n📏 ±${accuracy.toStringAsFixed(1)}m';
+            _vpsActive = tracking;
+            _earthState = earthState;
+            _trackingState = trackingState;
+            _horizontalAccuracy = accuracy;
 
-              // Colocar modelo automaticamente quando VPS ativar
-              if (!_modelPlaced && _config?.gpsCoordinates != null) {
-                _placeModel();
-              }
+            if (tracking) {
+              _statusMessage = 'VPS ATIVO';
               _vpsNotTrackingSeconds = 0;
             } else {
-              _statusMessage =
-                  '⏳ Aguardando VPS...\n\n'
-                  '💡 Aponte para edifícios distantes\n'
-                  '💡 Gire lentamente 360°';
+              _statusMessage = 'Aguardando VPS...';
               // increment local counter (each tick = 2s)
               _vpsNotTrackingSeconds += 2;
             }
@@ -224,24 +226,63 @@ class _GeospatialCameraScreenState
               ),
             ),
 
-          // Status overlay
+          // Status overlay com 3 cards
           Positioned(
-            top: 60,
-            left: 16,
-            right: 16,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _statusMessage,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Mensagem de status principal
+                  Text(
+                    _statusMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 3 cards: Earth, Tracking, Precisão
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatusCard(
+                          label: 'Earth',
+                          value: _earthState,
+                          isOk: _earthState == 'ENABLED',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildStatusCard(
+                          label: 'Tracking',
+                          value: _trackingState,
+                          isOk: _trackingState == 'TRACKING',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildStatusCard(
+                          label: 'Precisão',
+                          value: '${_horizontalAccuracy.toStringAsFixed(1)}m',
+                          isOk: _horizontalAccuracy < 5.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -270,6 +311,75 @@ class _GeospatialCameraScreenState
               onPressed: () => Navigator.pop(context),
               style: IconButton.styleFrom(backgroundColor: Colors.black54),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard({
+    required String label,
+    required String value,
+    required bool isOk,
+  }) {
+    Color borderColor;
+    Color iconColor;
+    IconData icon;
+
+    if (value == 'UNKNOWN' || value == '999.0m') {
+      // Ainda não inicializado - cinzento
+      borderColor = Colors.grey;
+      iconColor = Colors.grey;
+      icon = Icons.help_outline;
+    } else if (isOk) {
+      // OK - verde
+      borderColor = Colors.greenAccent;
+      iconColor = Colors.greenAccent;
+      icon = Icons.check_circle;
+    } else {
+      // Erro - vermelho
+      borderColor = Colors.redAccent;
+      iconColor = Colors.redAccent;
+      icon = Icons.error_outline;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
