@@ -1,10 +1,13 @@
 package com.housear.house_ar
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Surface
 import android.view.View
+import android.view.WindowManager
 import android.widget.FrameLayout
 import com.google.ar.core.*
 import io.flutter.plugin.platform.PlatformView
@@ -82,11 +85,39 @@ class SimpleGeospatialView(
                     session.cameraConfig = wideCamera
                     Log.d(TAG, "✅ Câmera: ${wideCamera.imageSize.width}x${wideCamera.imageSize.height}")
                 }
+                
+                // ✅ CRÍTICO: Configurar orientação da tela para ARCore
+                val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                val displayRotation = windowManager.defaultDisplay.rotation
+                session.setDisplayGeometry(displayRotation, arSceneView.width, arSceneView.height)
+                Log.d(TAG, "✅ Display rotation configurado: $displayRotation (0=portrait, 1=landscape)")
             }
             
-            // Callback de frame update
-            onFrame = { frame ->
-                handleFrameUpdate(this.session, frame)
+            // Callback de frame update - onFrame recebe frameTime (Long)
+            onFrame = { frameTimeNanos ->
+                // Obter frame do session
+                this.session?.let { session ->
+                    try {
+                        val frame = session.update()
+                        handleFrameUpdate(session, frame)
+                    } catch (e: Exception) {
+                        // Ignorar erros de session update
+                    }
+                }
+            }
+            
+            // Listener para atualizar display geometry quando view muda de tamanho
+            addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+                val width = right - left
+                val height = bottom - top
+                if (width > 0 && height > 0) {
+                    session?.let { session ->
+                        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                        val displayRotation = windowManager.defaultDisplay.rotation
+                        session.setDisplayGeometry(displayRotation, width, height)
+                        Log.d(TAG, "🔄 Display geometry atualizado: ${width}x${height}, rotation=$displayRotation")
+                    }
+                }
             }
         }
         
@@ -210,7 +241,7 @@ class SimpleGeospatialView(
         }
     }
 
-    private fun notifyVpsStatus(status: String, hAccuracy: Float, vAccuracy: Float) {
+    private fun notifyVpsStatus(status: String, hAccuracy: Double, vAccuracy: Double) {
         val pose = lastGeospatialPose ?: return
         
         mainHandler.post {
