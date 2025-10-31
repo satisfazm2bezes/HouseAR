@@ -87,14 +87,41 @@ class ArGeospatialView(
     }
     
     private fun setupTextureView() {
-        textureView = TextureView(context).apply {
+        // ARCore REQUER GLSurfaceView para renderização OpenGL
+        val glView = android.opengl.GLSurfaceView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            preserveEGLContextOnPause = true
+            setEGLContextClientVersion(2)
+            setEGLConfigChooser(8, 8, 8, 8, 16, 0)
+            
+            setRenderer(object : android.opengl.GLSurfaceView.Renderer {
+                override fun onSurfaceCreated(gl: javax.microedition.khronos.opengles.GL10?, config: javax.microedition.khronos.egl.EGLConfig?) {
+                    Log.d(TAG, "📺 GLSurface CREATED")
+                }
+                
+                override fun onSurfaceChanged(gl: javax.microedition.khronos.opengles.GL10?, width: Int, height: Int) {
+                    Log.d(TAG, "📺 GLSurface ${width}x${height}")
+                    android.opengl.GLES20.glViewport(0, 0, width, height)
+                }
+                
+                override fun onDrawFrame(gl: javax.microedition.khronos.opengles.GL10?) {
+                    android.opengl.GLES20.glClear(android.opengl.GLES20.GL_COLOR_BUFFER_BIT or android.opengl.GLES20.GL_DEPTH_BUFFER_BIT)
+                    try {
+                        arSession?.update()
+                    } catch (e: Exception) {
+                        // Ignore
+                    }
+                }
+            })
+            renderMode = android.opengl.GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
-        containerView.addView(textureView)
-        Log.d(TAG, "✅ TextureView criado")
+        
+        containerView.addView(glView)
+        textureView = null
+        Log.d(TAG, "✅ GLSurfaceView criado")
     }
     
     private fun checkSystemRequirements() {
