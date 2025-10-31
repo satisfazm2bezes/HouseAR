@@ -24,6 +24,18 @@ class ArGeospatialController {
     if (result == null) return null;
     return Map<String, dynamic>.from(result as Map);
   }
+
+  /// Obtém informações de câmera selecionada
+  Future<Map<String, dynamic>?> getCameraInfo() async {
+    final result = await _channel?.invokeMethod('getCameraInfo');
+    if (result == null) return null;
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Seleciona câmera por índice (0, 1, 2...)
+  Future<void> selectCamera(int index) async {
+    await _channel?.invokeMethod('selectCamera', {'index': index});
+  }
 }
 
 /// Widget que mostra preview da câmera AR com Geospatial

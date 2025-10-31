@@ -20,13 +20,14 @@ class HouseARApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'HouseAR - Geospatial VPS Nativo',
+      title: 'HouseAR - Geospatial VPS',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         primaryColor: Colors.blue,
         scaffoldBackgroundColor: Colors.black,
       ),
-      home: const GeospatialCameraScreen(),
+      home:
+          const GeospatialCameraScreen(), // Voltando para Geospatial - vou refazer com ArSceneView
     );
   }
 }

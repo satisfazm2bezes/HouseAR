@@ -44,7 +44,7 @@ flutter {
 }
 
 dependencies {
-    // ARCore SDK (usado pelo ar_flutter_plugin_2 e Geospatial)
+    // ARCore SDK (Geospatial API)
     implementation("com.google.ar:core:1.45.0")
     
     // Kotlin coroutines para async/await

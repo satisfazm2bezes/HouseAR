@@ -33,8 +33,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   
-  # AR Core plugin
-  ar_flutter_plugin_2: ^0.0.3
+  # vector_math para cálculos 3D
   vector_math: ^2.1.4
   
   # State management
