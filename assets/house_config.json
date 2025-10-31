@@ -1,9 +1,30 @@
-{
-  "modelUri": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
-  "nodeType": "webGLB",
-  "gpsCoordinates": [38.758252, -9.272524],
-  "scale": 1,
-  "rotationDegrees": 0.0,
-  "altitude": 170,
-  "name": "Casa Teste GPS"
-}
+[
+  {
+    "model": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+    "latitude": 38.758436,
+    "longitude": -9.272088,
+    "altitude": 213,
+    "scale": 2.0
+  },
+  {
+    "model": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+    "latitude": 38.758252,
+    "longitude": -9.272524,
+    "altitude": 170,
+    "scale": 1.0
+  },
+  {
+    "model": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+    "latitude": 38.758252,
+    "longitude": -9.272524,
+    "altitude": 180,
+    "scale": 4.0
+  },
+  {
+    "model": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+    "latitude": 38.758252,
+    "longitude": -9.272524,
+    "altitude": 190,
+    "scale": 5.0
+  }
+]

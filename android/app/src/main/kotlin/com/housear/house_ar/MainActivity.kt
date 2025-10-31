@@ -21,13 +21,13 @@ class MainActivity : FlutterActivity() {
             android.util.Log.w("MainActivity", "GeneratedPluginRegistrant registration failed: ${e.message}")
         }
 
-        // Registar PlatformView para câmera AR
+        // Registar PlatformView SIMPLES para câmera AR
         flutterEngine
             .platformViewsController
             .registry
             .registerViewFactory(
-                "ar_geospatial_view",
-                ArGeospatialViewFactory(flutterEngine.dartExecutor.binaryMessenger)
+                "simple_geospatial_view",
+                SimpleGeospatialViewFactory(flutterEngine.dartExecutor.binaryMessenger)
             )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

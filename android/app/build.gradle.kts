@@ -47,6 +47,9 @@ dependencies {
     // ARCore SDK (Geospatial API)
     implementation("com.google.ar:core:1.45.0")
     
+    // SceneView - AR rendering com Filament (mesma lib do ar_flutter_plugin_2)
+    implementation("io.github.sceneview:arsceneview:2.2.1")
+    
     // Kotlin coroutines para async/await
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
