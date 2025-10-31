@@ -27,7 +27,10 @@ class MainActivity : FlutterActivity() {
             .registry
             .registerViewFactory(
                 "simple_geospatial_view",
-                SimpleGeospatialViewFactory(flutterEngine.dartExecutor.binaryMessenger)
+                SimpleGeospatialViewFactory(
+                    flutterEngine.dartExecutor.binaryMessenger,
+                    this  // Passar activity como LifecycleOwner
+                )
             )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

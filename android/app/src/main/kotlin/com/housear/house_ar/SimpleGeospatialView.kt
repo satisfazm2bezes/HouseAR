@@ -9,6 +9,7 @@ import android.view.Surface
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.lifecycle.LifecycleOwner
 import com.google.ar.core.*
 import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.common.MethodChannel
@@ -32,6 +33,7 @@ import org.json.JSONArray
  */
 class SimpleGeospatialView(
     private val context: Context,
+    private val lifecycle: androidx.lifecycle.Lifecycle,  // Adicionar lifecycle
     id: Int,
     creationParams: Map<String, Any>?
 ) : PlatformView {
@@ -65,64 +67,99 @@ class SimpleGeospatialView(
     init {
         Log.d(TAG, "🚀 Inicializando SimpleGeospatialView com ARSceneView")
         
-        // ✅ CRUCIAL: ARSceneView gerencia TUDO automaticamente!
-        arSceneView = ARSceneView(context).apply {
-            // Configurar session via configureSession
-            configureSession { session, config ->
-                // Geospatial API
-                config.geospatialMode = Config.GeospatialMode.ENABLED
-                config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
-                config.focusMode = Config.FocusMode.AUTO
-                config.lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
-                
-                // Selecionar câmera wide-angle
-                val filter = CameraConfigFilter(session).apply {
-                    setFacingDirection(CameraConfig.FacingDirection.BACK)
-                }
-                val cameras = session.getSupportedCameraConfigs(filter)
-                if (cameras.isNotEmpty()) {
-                    val wideCamera = cameras.first()
-                    session.cameraConfig = wideCamera
-                    Log.d(TAG, "✅ Câmera: ${wideCamera.imageSize.width}x${wideCamera.imageSize.height}")
-                }
-                
-                // ✅ CRÍTICO: Configurar orientação da tela para ARCore
-                val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-                val displayRotation = windowManager.defaultDisplay.rotation
-                session.setDisplayGeometry(displayRotation, arSceneView.width, arSceneView.height)
-                Log.d(TAG, "✅ Display rotation configurado: $displayRotation (0=portrait, 1=landscape)")
-            }
-            
-            // Callback de frame update - onFrame recebe frameTime (Long)
-            onFrame = { frameTimeNanos ->
-                // Obter frame do session
-                this.session?.let { session ->
-                    try {
-                        val frame = session.update()
-                        handleFrameUpdate(session, frame)
-                    } catch (e: Exception) {
-                        // Ignorar erros de session update
+        // ✅ CRUCIAL: ARSceneView COM LIFECYCLE (como ar_flutter_plugin_2)
+        arSceneView = ARSceneView(
+            context = context,
+            sharedLifecycle = lifecycle,  // Usar lifecycle passado
+            sessionConfiguration = { session, config ->
+                config.apply {
+                    // Geospatial API
+                    geospatialMode = Config.GeospatialMode.ENABLED
+                    updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
+                    focusMode = Config.FocusMode.AUTO
+                    lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
+                    
+                    // Selecionar câmera com maior FOV (menos zoom)
+                    val filter = CameraConfigFilter(session).apply {
+                        setFacingDirection(CameraConfig.FacingDirection.BACK)
+                    }
+                    val cameras = session.getSupportedCameraConfigs(filter)
+                    if (cameras.isNotEmpty()) {
+                        // Ordenar por FOV (maior primeiro) e escolher a primeira
+                        val bestCamera = cameras.maxByOrNull { cameraConfig ->
+                            // FOV aproximado baseado na resolução (quanto maior a resolução, geralmente menor o zoom)
+                            cameraConfig.imageSize.width * cameraConfig.imageSize.height
+                        } ?: cameras.first()
+                        
+                        session.cameraConfig = bestCamera
+                        Log.d(TAG, "✅ Câmera selecionada: ${bestCamera.imageSize.width}x${bestCamera.imageSize.height}")
+                        Log.d(TAG, "   Câmeras disponíveis: ${cameras.size}")
+                        cameras.forEachIndexed { index, cam ->
+                            Log.d(TAG, "   [$index] ${cam.imageSize.width}x${cam.imageSize.height}")
+                        }
                     }
                 }
             }
+        )
+        
+        // Callback de frame update - onFrame recebe frameTime (Long)
+        arSceneView.onFrame = { frameTimeNanos ->
+            // Log a cada 60 frames (~1 segundo)
+            if (frameTimeNanos % 60 == 0L) {
+                Log.d(TAG, "📹 onFrame chamado - frameTime: $frameTimeNanos")
+            }
             
-            // Listener para atualizar display geometry quando view muda de tamanho
-            addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
-                val width = right - left
-                val height = bottom - top
-                if (width > 0 && height > 0) {
-                    session?.let { session ->
-                        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-                        val displayRotation = windowManager.defaultDisplay.rotation
-                        session.setDisplayGeometry(displayRotation, width, height)
-                        Log.d(TAG, "🔄 Display geometry atualizado: ${width}x${height}, rotation=$displayRotation")
-                    }
+            // Obter frame do session
+            arSceneView.session?.let { session ->
+                try {
+                    val frame = session.update()
+                    handleFrameUpdate(session, frame)
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Erro no frame update: ${e.message}")
+                }
+            } ?: run {
+                if (frameTimeNanos % 60 == 0L) {
+                    Log.w(TAG, "⚠️ Session ainda não criada!")
                 }
             }
         }
         
-        // Adicionar ARSceneView ao container
+        // Adicionar ARSceneView ao container ANTES de configurar geometry
         containerView.addView(arSceneView)
+        Log.d(TAG, "✅ ARSceneView adicionado ao container - size: ${arSceneView.width}x${arSceneView.height}")
+        
+        // Forçar criação da session chamando configureSession DEPOIS que view está no layout
+        arSceneView.post {
+            Log.d(TAG, "🔄 Post runnable executado - size agora: ${arSceneView.width}x${arSceneView.height}")
+            
+            // Forçar re-configuração agora que temos dimensões
+            arSceneView.configureSession { session, config ->
+                config.apply {
+                    geospatialMode = Config.GeospatialMode.ENABLED
+                    updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
+                }
+                
+                // Configurar display geometry AQUI com dimensões corretas
+                val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                val displayRotation = windowManager.defaultDisplay.rotation
+                session.setDisplayGeometry(displayRotation, arSceneView.width, arSceneView.height)
+                Log.d(TAG, "✅ Display geometry configurado: ${arSceneView.width}x${arSceneView.height}, rotation=$displayRotation")
+            }
+        }
+        
+        // Listener para atualizar display geometry quando view muda de tamanho
+        arSceneView.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+            val width = right - left
+            val height = bottom - top
+            if (width > 0 && height > 0) {
+                arSceneView.session?.let { session ->
+                    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                    val displayRotation = windowManager.defaultDisplay.rotation
+                    session.setDisplayGeometry(displayRotation, width, height)
+                    Log.d(TAG, "🔄 Display geometry atualizado: ${width}x${height}, rotation=$displayRotation")
+                }
+            }
+        }
         
         Log.d(TAG, "✅ ARSceneView configurado e pronto")
     }
@@ -187,7 +224,7 @@ class SimpleGeospatialView(
                 val anchor = earth.createAnchor(
                     config.latitude,
                     config.longitude,
-                    config.altitude.toFloat(),
+                    config.altitude,
                     0f, 0f, 0f, 1f // Quaternion identidade (sem rotação)
                 )
                 
