@@ -13,7 +13,14 @@ class ArGeospatialViewFactory(
     private val messenger: BinaryMessenger
 ) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     
+    companion object {
+        // Referência ao último ArGeospatialView criado para acesso global
+        var activeView: ArGeospatialView? = null
+    }
+    
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
-        return ArGeospatialView(context, viewId, messenger)
+        val view = ArGeospatialView(context, viewId, messenger)
+        activeView = view
+        return view
     }
 }

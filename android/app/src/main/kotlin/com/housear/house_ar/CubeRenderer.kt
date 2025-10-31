@@ -15,8 +15,8 @@ import java.nio.FloatBuffer
 class CubeRenderer {
     private val TAG = "CubeRenderer"
 
-    // Tamanho GIGANTE para debug - 50 metros total (visível de muito longe!)
-    private val BASE_SIZE = 25.0f // 25m = cubo de 50m total
+    // Cubo de 2 metros (1m = metade em cada direção)
+    private val BASE_SIZE = 1.0f // 1m = cubo de 2m total
     
     private val cubeCoords = floatArrayOf(
         // 12 triangles (36 vertices) for a cube

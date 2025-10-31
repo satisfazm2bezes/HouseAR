@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,13 +20,14 @@ class GeospatialARScreen extends ConsumerStatefulWidget {
 class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
   String _statusMessage = 'Inicializando ARCore Geospatial...';
   GeospatialStatus? _status;
-  bool _isModelPlaced = false;
   HouseModelConfig? _config;
 
   @override
   void initState() {
     super.initState();
     _initialize();
+    // Iniciar polling de status imediatamente
+    _startStatusPolling();
   }
 
   @override
@@ -88,9 +90,6 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
 
         // Colocar modelo
         await _placeModel();
-
-        // Iniciar polling de status
-        _startStatusPolling();
       }
     } on GeospatialException catch (e) {
       // Tratar erros específicos de Geospatial
@@ -172,7 +171,6 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
 
       if (result['success'] == true) {
         setState(() {
-          _isModelPlaced = true;
           _statusMessage =
               'Modelo colocado em GPS exato! '
               '(${_config!.gpsCoordinates![0].toStringAsFixed(6)}, '
@@ -192,14 +190,19 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
 
       try {
         final status = await GeospatialARService.getStatus();
-        setState(() {
-          _status = status;
-        });
+        if (mounted) {
+          setState(() {
+            _status = status;
+          });
+          print(
+            '📊 Status atualizado: ${status.earthState}, ${status.trackingState}, ${status.horizontalAccuracy}m',
+          );
+        }
       } catch (e) {
-        // Ignore polling errors
+        print('❌ Erro polling: $e');
       }
 
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
       return mounted;
     });
   }
@@ -214,31 +217,21 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
       ),
       body: Stack(
         children: [
-          // Camera feed seria renderizado aqui via PlatformView
-          // Por agora mostramos apenas status
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _isModelPlaced ? Icons.check_circle : Icons.satellite_alt,
-                  color: _isModelPlaced
-                      ? Colors.greenAccent
-                      : Colors.orangeAccent,
-                  size: 64,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  _isModelPlaced ? 'Modelo Colocado!' : 'Aguarde...',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+          // Camera AR View
+          if (Platform.isAndroid)
+            AndroidView(
+              viewType: 'ar_geospatial_view',
+              onPlatformViewCreated: (_) {
+                debugPrint('ArGeospatialView criada');
+              },
+            )
+          else
+            Center(
+              child: Text(
+                'ARCore Geospatial apenas disponível em Android',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
             ),
-          ),
 
           // Status overlay
           Positioned(
@@ -247,13 +240,9 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
             right: 0,
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withAlpha((0.9 * 255).toInt()),
-                    Colors.black.withAlpha((0.0 * 255).toInt()),
-                  ],
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
               ),
               padding: const EdgeInsets.all(20),
@@ -279,9 +268,9 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
                         child: _buildCheckCard(
                           label: 'Earth',
                           ok: (_status?.earthState ?? 'UNKNOWN') == 'ENABLED',
-                          detail: _status?.earthState ?? 'UNKNOWN',
+                          detail: _status?.earthState ?? 'AGUARDANDO',
                           hint: _status == null
-                              ? 'Aguardando...'
+                              ? 'Inicializando...'
                               : (_status!.earthState == 'ENABLED'
                                     ? 'OK'
                                     : 'Verifique API key'),
@@ -294,9 +283,9 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
                           ok:
                               (_status?.trackingState ?? 'UNKNOWN') ==
                               'TRACKING',
-                          detail: _status?.trackingState ?? 'UNKNOWN',
+                          detail: _status?.trackingState ?? 'AGUARDANDO',
                           hint: _status == null
-                              ? 'Aguardando...'
+                              ? 'Inicializando...'
                               : (_status!.trackingState == 'TRACKING'
                                     ? 'VPS ativo'
                                     : 'Gire 360°'),
@@ -311,9 +300,9 @@ class _GeospatialARScreenState extends ConsumerState<GeospatialARScreen> {
                               5.0,
                           detail: _status != null
                               ? '${_status!.horizontalAccuracy.toStringAsFixed(1)}m'
-                              : 'N/A',
+                              : '---',
                           hint: _status == null
-                              ? 'Aguardando...'
+                              ? 'Inicializando...'
                               : (_status!.horizontalAccuracy < 5.0
                                     ? 'Boa'
                                     : 'Aguarde'),

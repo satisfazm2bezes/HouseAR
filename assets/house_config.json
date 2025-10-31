@@ -1,7 +1,7 @@
 {
   "modelUri": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
   "nodeType": "webGLB",
-  "gpsCoordinates": [38.758253710138824, -9.272492890642507],
+  "gpsCoordinates": [38.758252, -9.272524],
   "scale": 1,
   "rotationDegrees": 0.0,
   "altitude": 170,

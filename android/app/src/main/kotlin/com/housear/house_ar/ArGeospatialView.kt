@@ -1,6 +1,8 @@
 package com.housear.house_ar
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.opengl.GLSurfaceView
 import android.opengl.GLES20
 import android.util.Log
@@ -18,7 +20,7 @@ import javax.microedition.khronos.opengles.GL10
  * PlatformView SIMPLES que mostra câmera AR
  */
 class ArGeospatialView(
-    context: Context,
+    private val context: Context,
     id: Int,
     messenger: BinaryMessenger
 ) : PlatformView, GLSurfaceView.Renderer {
@@ -54,7 +56,7 @@ class ArGeospatialView(
                     placeModel(lat, lon, alt)
                     result.success(true)
                 }
-                "getVPSStatus" -> {
+                "getVPSStatus", "getStatus" -> {
                     result.success(getVPSStatus())
                 }
                 else -> result.notImplemented()
@@ -100,8 +102,31 @@ class ArGeospatialView(
     
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         GLES20.glViewport(0, 0, width, height)
-        session?.setDisplayGeometry(android.view.Surface.ROTATION_0, width, height)
-        Log.d(TAG, "📐 Surface changed: ${width}x${height}")
+        
+        // Obter rotação real do dispositivo
+        val activity = getActivity(context)
+        val rotation = activity?.windowManager?.defaultDisplay?.rotation 
+            ?: android.view.Surface.ROTATION_0
+        
+        val rotationName = when(rotation) {
+            android.view.Surface.ROTATION_0 -> "PORTRAIT (0°)"
+            android.view.Surface.ROTATION_90 -> "LANDSCAPE (90°)"
+            android.view.Surface.ROTATION_180 -> "PORTRAIT_INVERTED (180°)"
+            android.view.Surface.ROTATION_270 -> "LANDSCAPE_INVERTED (270°)"
+            else -> "UNKNOWN"
+        }
+        
+        session?.setDisplayGeometry(rotation, width, height)
+        Log.d(TAG, "📐 Surface changed: ${width}x${height}, rotation=$rotation ($rotationName)")
+    }
+    
+    private fun getActivity(context: Context?): Activity? {
+        var ctx = context
+        while (ctx is ContextWrapper) {
+            if (ctx is Activity) return ctx
+            ctx = ctx.baseContext
+        }
+        return null
     }
     
     override fun onDrawFrame(gl: GL10?) {
@@ -117,15 +142,13 @@ class ArGeospatialView(
                 // Processar Earth e tentar colocar modelo
                 val earth = s.earth
                 if (earth != null) {
-                    // Tentar colocar modelo automaticamente
-                    tryAutoPlaceModel()
-                    
                     // Desenhar anchors
                     if (anchors.isNotEmpty()) {
                         val viewMatrix = FloatArray(16)
                         val projMatrix = FloatArray(16)
                         frame.camera.getViewMatrix(viewMatrix, 0)
-                        frame.camera.getProjectionMatrix(projMatrix, 0, 0.01f, 1000.0f)
+                        // Ajustar near/far para outdoor AR (objetos podem estar longe)
+                        frame.camera.getProjectionMatrix(projMatrix, 0, 0.1f, 500.0f)
                         
                         val it = anchors.iterator()
                         while (it.hasNext()) {
@@ -153,28 +176,7 @@ class ArGeospatialView(
         }
     }
     
-    private fun tryAutoPlaceModel() {
-        if (modelPlaced) return
-        if (anchors.isNotEmpty()) return
-        
-        val earth = session?.earth ?: return
-        if (earth.earthState != Earth.EarthState.ENABLED) return
-        if (earth.trackingState != TrackingState.TRACKING) return
-        
-        try {
-            // Coordenadas do house_config.json
-            val lat = 38.758253710138824
-            val lon = -9.272492890642507
-            val alt = 170.0
-            
-            placeModel(lat, lon, alt)
-            Log.d(TAG, "✅ Modelo colocado nas coordenadas GPS")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Erro ao criar anchor GPS: ${e.message}", e)
-        }
-    }
-    
-    private fun placeModel(lat: Double, lon: Double, alt: Double) {
+    fun placeModel(lat: Double, lon: Double, alt: Double) {
         try {
             val earth = session?.earth
             if (earth != null && earth.earthState == Earth.EarthState.ENABLED) {
@@ -194,21 +196,51 @@ class ArGeospatialView(
         }
     }
     
-    private fun getVPSStatus(): HashMap<String, Any> {
+    fun getVPSStatus(): HashMap<String, Any> {
+        Log.d(TAG, "📊 getVPSStatus chamado")
+        try {
+            session?.update()
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Erro ao update session: ${e.message}")
+        }
+        
         val earth = session?.earth
         if (earth == null) {
-            return hashMapOf("tracking" to false)
+            Log.w(TAG, "⚠️ Earth é null - retornando status padrão")
+            return hashMapOf(
+                "available" to false,
+                "tracking" to false,
+                "trackingState" to "UNKNOWN",
+                "earthState" to "UNKNOWN",
+                "latitude" to 0.0,
+                "longitude" to 0.0,
+                "altitude" to 0.0,
+                "horizontalAccuracy" to 999.0,
+                "verticalAccuracy" to 999.0,
+                "heading" to 0.0,
+                "headingAccuracy" to 999.0,
+                "objectCount" to 0
+            )
         }
         
         val pose = earth.cameraGeospatialPose
+        val isTracking = earth.trackingState == TrackingState.TRACKING
+        
+        Log.d(TAG, "📍 Status: earthState=${earth.earthState}, trackingState=${earth.trackingState}, accuracy=${pose.horizontalAccuracy}m")
         
         return hashMapOf(
-            "tracking" to (earth.trackingState == TrackingState.TRACKING),
+            "available" to isTracking,
+            "tracking" to isTracking,
             "latitude" to pose.latitude,
             "longitude" to pose.longitude,
             "altitude" to pose.altitude,
-            "accuracy" to pose.horizontalAccuracy,
-            "earthState" to earth.earthState.toString()
+            "horizontalAccuracy" to pose.horizontalAccuracy.toDouble(),
+            "verticalAccuracy" to pose.verticalAccuracy.toDouble(),
+            "heading" to pose.heading.toDouble(),
+            "headingAccuracy" to pose.headingAccuracy.toDouble(),
+            "earthState" to earth.earthState.toString(),
+            "trackingState" to earth.trackingState.toString(),
+            "objectCount" to anchors.size
         )
     }
     

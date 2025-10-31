@@ -40,17 +40,24 @@ class MainActivity : FlutterActivity() {
                     }
                     
                     "addObject" -> {
-                        val id = call.argument<String>("id") ?: ""
                         val lat = call.argument<Double>("latitude") ?: 0.0
                         val lon = call.argument<Double>("longitude") ?: 0.0
                         val alt = call.argument<Double>("altitude") ?: 0.0
-                        val modelUri = call.argument<String>("modelUri") ?: ""
-                        val rotation = call.argument<Double>("rotation")?.toFloat() ?: 0f
-                        val scale = call.argument<Double>("scale")?.toFloat() ?: 1f
                         
-                        geospatialManager?.addObject(
-                            id, lat, lon, alt, modelUri, rotation, scale, result
-                        )
+                        // Usar ArGeospatialView se disponível
+                        val activeView = ArGeospatialViewFactory.activeView
+                        if (activeView != null) {
+                            activeView.placeModel(lat, lon, alt)
+                            result.success(mapOf("success" to true))
+                        } else {
+                            val id = call.argument<String>("id") ?: ""
+                            val modelUri = call.argument<String>("modelUri") ?: ""
+                            val rotation = call.argument<Double>("rotation")?.toFloat() ?: 0f
+                            val scale = call.argument<Double>("scale")?.toFloat() ?: 1f
+                            geospatialManager?.addObject(
+                                id, lat, lon, alt, modelUri, rotation, scale, result
+                            )
+                        }
                     }
                     
                     "removeObject" -> {
@@ -59,7 +66,13 @@ class MainActivity : FlutterActivity() {
                     }
                     
                     "getStatus" -> {
-                        geospatialManager?.getStatus(result)
+                        // Usar ArGeospatialView se disponível, caso contrário GeospatialARManager
+                        val activeView = ArGeospatialViewFactory.activeView
+                        if (activeView != null) {
+                            result.success(activeView.getVPSStatus())
+                        } else {
+                            geospatialManager?.getStatus(result)
+                        }
                     }
                     
                     "dispose" -> {
