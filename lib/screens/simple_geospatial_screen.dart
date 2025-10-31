@@ -23,6 +23,8 @@ class _SimpleGeospatialScreenState extends State<SimpleGeospatialScreen> {
   double _verticalAccuracy = 999.0;
   int _modelsPlaced = 0;
   bool _permissionsGranted = false;
+  bool _modelsLoaded = false; // Modelos carregados do JSON
+  bool _modelsRendered = false; // Modelos já renderizados na cena
 
   @override
   void initState() {
@@ -162,14 +164,52 @@ class _SimpleGeospatialScreenState extends State<SimpleGeospatialScreen> {
             ),
           ),
 
-          // Botão para recarregar modelos
+          // Botões inferiores
           Positioned(
             bottom: 40,
+            left: 16,
             right: 16,
-            child: FloatingActionButton(
-              onPressed: _loadModels,
-              child: Icon(Icons.refresh),
-              backgroundColor: Colors.blue,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Botão para colocar modelos (só ativo quando VPS ready)
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _canPlaceModels() && !_modelsRendered
+                        ? _placeModels
+                        : null,
+                    icon: Icon(
+                      _modelsRendered
+                          ? Icons.check_circle
+                          : Icons.add_location_alt,
+                    ),
+                    label: Text(
+                      _modelsRendered
+                          ? 'Modelos Colocados!'
+                          : _canPlaceModels()
+                          ? 'Colocar Modelos (${_horizontalAccuracy.toStringAsFixed(1)}m)'
+                          : _horizontalAccuracy < 999.0
+                          ? 'Aguarde <10m (${_horizontalAccuracy.toStringAsFixed(1)}m)'
+                          : 'Aguardando VPS...',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _modelsRendered
+                          ? Colors.green
+                          : Colors.blueAccent,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8),
+                // Botão para recarregar configuração
+                FloatingActionButton(
+                  onPressed: _loadModels,
+                  child: Icon(Icons.refresh),
+                  backgroundColor: Colors.orange,
+                  mini: true,
+                ),
+              ],
             ),
           ),
         ],
@@ -219,9 +259,16 @@ class _SimpleGeospatialScreenState extends State<SimpleGeospatialScreen> {
 
       print('✅ Modelos carregados: $result');
 
+      setState(() {
+        _modelsLoaded = true;
+        _modelsRendered = false; // Reset para permitir novo placement
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${modelsArray.length} modelo(s) carregado(s)'),
+          content: Text(
+            '${modelsArray.length} modelo(s) carregado(s) - aguarde VPS <10m',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -229,6 +276,46 @@ class _SimpleGeospatialScreenState extends State<SimpleGeospatialScreen> {
       print('❌ Erro ao carregar modelos: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  /// Verifica se pode colocar modelos: VPS TRACKING + accuracy <10m
+  bool _canPlaceModels() {
+    return _status == 'TRACKING' &&
+        _horizontalAccuracy < 10.0 &&
+        _modelsLoaded &&
+        !_modelsRendered;
+  }
+
+  /// Coloca modelos 3D nas coordenadas GPS
+  Future<void> _placeModels() async {
+    try {
+      print('🎯 Colocando modelos 3D...');
+
+      final result = await _viewChannel?.invokeMethod('placeModels');
+
+      print('✅ Modelos colocados: $result');
+
+      setState(() {
+        _modelsRendered = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Modelos 3D colocados nas coordenadas GPS!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      print('❌ Erro ao colocar modelos: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
       );
     }
   }

@@ -25,7 +25,7 @@ class SimpleGeospatialViewFactory(
         val channel = MethodChannel(messenger, "simple_geospatial_view_$viewId")
         view.setMethodChannel(channel)
         
-        // Registar método para carregar modelos
+        // Registar métodos para comunicação com Flutter
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "loadModels" -> {
@@ -35,6 +35,15 @@ class SimpleGeospatialViewFactory(
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGUMENT", "JSON string required", null)
+                    }
+                }
+                "placeModels" -> {
+                    // Flutter chamou para colocar modelos!
+                    try {
+                        view.placeModelsNow()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("PLACE_ERROR", "Erro ao colocar modelos: ${e.message}", null)
                     }
                 }
                 else -> result.notImplemented()

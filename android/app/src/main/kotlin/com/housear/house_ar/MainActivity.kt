@@ -2,14 +2,10 @@ package com.housear.house_ar
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
 // Registrar plugins gerados para garantir que todos os plugins Flutter sejam registrados
 import io.flutter.plugins.GeneratedPluginRegistrant
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "house_ar/geospatial"
-    private var geospatialManager: GeospatialARManager? = null
-
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -21,7 +17,7 @@ class MainActivity : FlutterActivity() {
             android.util.Log.w("MainActivity", "GeneratedPluginRegistrant registration failed: ${e.message}")
         }
 
-        // Registar PlatformView SIMPLES para câmera AR
+        // Registar PlatformView SIMPLES para câmera AR com ARSceneView
         flutterEngine
             .platformViewsController
             .registry
@@ -32,69 +28,5 @@ class MainActivity : FlutterActivity() {
                     this  // Passar activity como LifecycleOwner
                 )
             )
-
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "initialize" -> {
-                        geospatialManager?.dispose()
-                        geospatialManager = GeospatialARManager(this, result)
-                        geospatialManager?.initialize()
-                    }
-                    
-                    "addObject" -> {
-                        val lat = call.argument<Double>("latitude") ?: 0.0
-                        val lon = call.argument<Double>("longitude") ?: 0.0
-                        val alt = call.argument<Double>("altitude") ?: 0.0
-                        
-                        // Usar ArGeospatialView se disponível
-                        val activeView = ArGeospatialViewFactory.activeView
-                        if (activeView != null) {
-                            activeView.placeModel(lat, lon, alt)
-                            result.success(mapOf("success" to true))
-                        } else {
-                            val id = call.argument<String>("id") ?: ""
-                            val modelUri = call.argument<String>("modelUri") ?: ""
-                            val rotation = call.argument<Double>("rotation")?.toFloat() ?: 0f
-                            val scale = call.argument<Double>("scale")?.toFloat() ?: 1f
-                            geospatialManager?.addObject(
-                                id, lat, lon, alt, modelUri, rotation, scale, result
-                            )
-                        }
-                    }
-                    
-                    "removeObject" -> {
-                        val id = call.argument<String>("id") ?: ""
-                        geospatialManager?.removeObject(id, result)
-                    }
-                    
-                    "getStatus" -> {
-                        // Usar ArGeospatialView se disponível, caso contrário GeospatialARManager
-                        val activeView = ArGeospatialViewFactory.activeView
-                        android.util.Log.d("MainActivity", "🔍 getStatus chamado - activeView=${activeView != null}")
-                        if (activeView != null) {
-                            val status = activeView.getVPSStatus()
-                            android.util.Log.d("MainActivity", "✅ Status do ArGeospatialView: $status")
-                            result.success(status)
-                        } else {
-                            android.util.Log.w("MainActivity", "⚠️ ArGeospatialView null - usando GeospatialARManager")
-                            geospatialManager?.getStatus(result)
-                        }
-                    }
-                    
-                    "dispose" -> {
-                        geospatialManager?.dispose()
-                        geospatialManager = null
-                        result.success(null)
-                    }
-                    
-                    else -> result.notImplemented()
-                }
-            }
-    }
-
-    override fun onDestroy() {
-        geospatialManager?.dispose()
-        super.onDestroy()
     }
 }

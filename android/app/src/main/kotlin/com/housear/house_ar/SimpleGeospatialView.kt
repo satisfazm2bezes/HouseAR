@@ -203,14 +203,20 @@ class SimpleGeospatialView(
                     Log.d(TAG, "✅ VPS PRONTO! Precisão: H=${String.format("%.1f", horizontalAccuracy)}m V=${String.format("%.1f", verticalAccuracy)}m")
                     Log.d(TAG, "📍 Localização: Lat=${geospatialPose.latitude}, Lon=${geospatialPose.longitude}, Alt=${geospatialPose.altitude}")
                     
-                    // Colocar modelos automaticamente
-                    placeQueuedModels(earth)
+                    // ❌ NÃO colocar modelos automaticamente!
+                    // Aguardar Flutter pressionar botão "Colocar Modelos"
                 }
             }
         }
     }
 
-    private fun placeQueuedModels(earth: Earth) {
+    /**
+     * Coloca modelos 3D nas coordenadas GPS usando Terrain Anchors.
+     * Chamado quando VPS está pronto (accuracy < 10m).
+     * 
+     * NÃO é chamado automaticamente - apenas quando Flutter invocar placeModels().
+     */
+    fun placeQueuedModels(earth: Earth) {
         if (modelsToPlace.isEmpty()) {
             Log.d(TAG, "ℹ️ Nenhum modelo na fila para colocar")
             return
@@ -230,21 +236,45 @@ class SimpleGeospatialView(
                 
                 placedAnchors.add(anchor)
                 
-                // ✅ TODO: Criar ModelNode e adicionar à cena
-                // val anchorNode = AnchorNode(arSceneView.engine, anchor)
-                // val modelNode = ModelNode(...)
-                // anchorNode.addChildNode(modelNode)
-                // arSceneView.addChildNode(anchorNode)
+                // ✅ Criar AnchorNode com o anchor GPS
+                val anchorNode = AnchorNode(arSceneView.engine, anchor)
                 
-                Log.d(TAG, "✅ Anchor criado: ${config.modelPath}")
-                Log.d(TAG, "   📍 GPS: Lat=${config.latitude}, Lon=${config.longitude}, Alt=${config.altitude}m")
-                Log.d(TAG, "   📏 Scale: ${config.scale}")
+                // ✅ Carregar modelo .glb usando ARSceneView ModelNode
+                // Se for URL (Duck.glb), usar direto. Se for asset local, usar "file:///android_asset/..."
+                val modelUri = if (config.modelPath.startsWith("http")) {
+                    config.modelPath
+                } else {
+                    "file:///android_asset/models/${config.modelPath}"
+                }
                 
-                // Notificar Flutter
-                notifyModelPlaced(config.modelPath, config.latitude, config.longitude)
+                // Criar ModelNode com coroutine para carregamento assíncrono
+                mainScope.launch {
+                    try {
+                        val modelNode = ModelNode(
+                            modelInstance = arSceneView.modelLoader.createModelInstance(modelUri),
+                            scaleToUnits = config.scale.toFloat()
+                        )
+                        
+                        // Adicionar modelo ao anchor
+                        anchorNode.addChildNode(modelNode)
+                        
+                        // Adicionar anchor à cena AR
+                        arSceneView.addChildNode(anchorNode)
+                        
+                        Log.d(TAG, "✅ Modelo 3D renderizado: ${config.modelPath}")
+                        Log.d(TAG, "   📍 GPS: Lat=${config.latitude}, Lon=${config.longitude}, Alt=${config.altitude}m")
+                        Log.d(TAG, "   📏 Scale: ${config.scale}")
+                        
+                        // Notificar Flutter
+                        notifyModelPlaced(config.modelPath, config.latitude, config.longitude)
+                        
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Erro ao carregar modelo 3D ${config.modelPath}: ${e.message}")
+                    }
+                }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Erro ao colocar modelo ${config.modelPath}: ${e.message}")
+                Log.e(TAG, "❌ Erro ao criar anchor para ${config.modelPath}: ${e.message}")
             }
         }
         
@@ -276,6 +306,40 @@ class SimpleGeospatialView(
         } catch (e: Exception) {
             Log.e(TAG, "❌ Erro ao parsear JSON: ${e.message}")
         }
+    }
+
+    /**
+     * Chamado pelo Flutter quando botão "Colocar Modelos" for pressionado.
+     * Valida se VPS está pronto e coloca os modelos.
+     */
+    fun placeModelsNow() {
+        arSceneView.session?.let { session ->
+            val earth = session.earth
+            
+            if (earth == null) {
+                Log.e(TAG, "❌ Earth não disponível!")
+                throw IllegalStateException("Earth não disponível")
+            }
+            
+            if (earth.trackingState != com.google.ar.core.TrackingState.TRACKING) {
+                Log.e(TAG, "❌ Earth não está em TRACKING: ${earth.trackingState}")
+                throw IllegalStateException("Earth não está em TRACKING")
+            }
+            
+            val pose = earth.cameraGeospatialPose
+            if (pose.horizontalAccuracy >= 10.0) {
+                Log.e(TAG, "❌ Precisão GPS insuficiente: ${pose.horizontalAccuracy}m (precisa <10m)")
+                throw IllegalStateException("Precisão GPS insuficiente: ${pose.horizontalAccuracy}m")
+            }
+            
+            Log.d(TAG, "✅ Condições OK para colocar modelos!")
+            Log.d(TAG, "   📍 GPS: Lat=${pose.latitude}, Lon=${pose.longitude}")
+            Log.d(TAG, "   📏 Precisão: ${pose.horizontalAccuracy}m")
+            
+            // Colocar modelos!
+            placeQueuedModels(earth)
+            
+        } ?: throw IllegalStateException("ARCore session não disponível")
     }
 
     private fun notifyVpsStatus(status: String, hAccuracy: Double, vAccuracy: Double) {
