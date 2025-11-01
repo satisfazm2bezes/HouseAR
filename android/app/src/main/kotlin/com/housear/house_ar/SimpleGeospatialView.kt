@@ -66,102 +66,51 @@ class SimpleGeospatialView(
 
     init {
         Log.d(TAG, "🚀 Inicializando SimpleGeospatialView com ARSceneView")
+        Log.d(TAG, "   Lifecycle state: ${lifecycle.currentState}")
         
-        // ✅ CRUCIAL: ARSceneView COM LIFECYCLE (como ar_flutter_plugin_2)
+        // ✅ ARSceneView COM lifecycle (padrão ar_flutter_plugin_2)
         arSceneView = ARSceneView(
             context = context,
-            sharedLifecycle = lifecycle,  // Usar lifecycle passado
+            sharedLifecycle = lifecycle,
             sessionConfiguration = { session, config ->
+                Log.d(TAG, "🔧 sessionConfiguration callback chamado!")
                 config.apply {
-                    // Geospatial API
+                    // Geospatial API (principal feature)
                     geospatialMode = Config.GeospatialMode.ENABLED
+                    
+                    // Configurações adicionais
+                    depthMode = when (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
+                        true -> Config.DepthMode.AUTOMATIC
+                        else -> Config.DepthMode.DISABLED
+                    }
                     updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
                     focusMode = Config.FocusMode.AUTO
                     lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
+                    // Manter plane finding ativo mas não mostrar visualmente (ARCore precisa para funcionar)
+                    planeFindingMode = Config.PlaneFindingMode.HORIZONTAL
                     
-                    // Selecionar câmera com maior FOV (menos zoom)
-                    val filter = CameraConfigFilter(session).apply {
-                        setFacingDirection(CameraConfig.FacingDirection.BACK)
-                    }
-                    val cameras = session.getSupportedCameraConfigs(filter)
-                    if (cameras.isNotEmpty()) {
-                        // Ordenar por FOV (maior primeiro) e escolher a primeira
-                        val bestCamera = cameras.maxByOrNull { cameraConfig ->
-                            // FOV aproximado baseado na resolução (quanto maior a resolução, geralmente menor o zoom)
-                            cameraConfig.imageSize.width * cameraConfig.imageSize.height
-                        } ?: cameras.first()
-                        
-                        session.cameraConfig = bestCamera
-                        Log.d(TAG, "✅ Câmera selecionada: ${bestCamera.imageSize.width}x${bestCamera.imageSize.height}")
-                        Log.d(TAG, "   Câmeras disponíveis: ${cameras.size}")
-                        cameras.forEachIndexed { index, cam ->
-                            Log.d(TAG, "   [$index] ${cam.imageSize.width}x${cam.imageSize.height}")
-                        }
-                    }
+                    // Deixar ARCore escolher a melhor câmera automaticamente (sem zoom)
+                    // Não configurar cameraConfig manualmente para FOV natural
                 }
             }
         )
         
-        // Callback de frame update - onFrame recebe frameTime (Long)
-        arSceneView.onFrame = { frameTimeNanos ->
-            // Log a cada 60 frames (~1 segundo)
-            if (frameTimeNanos % 60 == 0L) {
-                Log.d(TAG, "📹 onFrame chamado - frameTime: $frameTimeNanos")
-            }
-            
-            // Obter frame do session
-            arSceneView.session?.let { session ->
-                try {
-                    val frame = session.update()
-                    handleFrameUpdate(session, frame)
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Erro no frame update: ${e.message}")
-                }
-            } ?: run {
-                if (frameTimeNanos % 60 == 0L) {
-                    Log.w(TAG, "⚠️ Session ainda não criada!")
-                }
-            }
-        }
-        
-        // Adicionar ARSceneView ao container ANTES de configurar geometry
+        // Adicionar ao container (como ar_flutter_plugin_2)
         containerView.addView(arSceneView)
-        Log.d(TAG, "✅ ARSceneView adicionado ao container - size: ${arSceneView.width}x${arSceneView.height}")
+        Log.d(TAG, "✅ ARSceneView adicionado ao layout")
         
-        // Forçar criação da session chamando configureSession DEPOIS que view está no layout
-        arSceneView.post {
-            Log.d(TAG, "🔄 Post runnable executado - size agora: ${arSceneView.width}x${arSceneView.height}")
-            
-            // Forçar re-configuração agora que temos dimensões
-            arSceneView.configureSession { session, config ->
-                config.apply {
-                    geospatialMode = Config.GeospatialMode.ENABLED
-                    updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
-                }
-                
-                // Configurar display geometry AQUI com dimensões corretas
-                val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-                val displayRotation = windowManager.defaultDisplay.rotation
-                session.setDisplayGeometry(displayRotation, arSceneView.width, arSceneView.height)
-                Log.d(TAG, "✅ Display geometry configurado: ${arSceneView.width}x${arSceneView.height}, rotation=$displayRotation")
+        // PlaneRenderer INVISÍVEL (detecta mas não mostra - para Geospatial funcionar)
+        arSceneView.planeRenderer.isEnabled = true
+        arSceneView.planeRenderer.isVisible = false  // Não mostrar planos visualmente
+        
+        // onFrame callback (processar frames AR)
+        arSceneView.onFrame = { frameTime ->
+            arSceneView.session?.update()?.let { frame ->
+                handleFrameUpdate(arSceneView.session!!, frame)
             }
         }
         
-        // Listener para atualizar display geometry quando view muda de tamanho
-        arSceneView.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
-            val width = right - left
-            val height = bottom - top
-            if (width > 0 && height > 0) {
-                arSceneView.session?.let { session ->
-                    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-                    val displayRotation = windowManager.defaultDisplay.rotation
-                    session.setDisplayGeometry(displayRotation, width, height)
-                    Log.d(TAG, "🔄 Display geometry atualizado: ${width}x${height}, rotation=$displayRotation")
-                }
-            }
-        }
-        
-        Log.d(TAG, "✅ ARSceneView configurado e pronto")
+        Log.d(TAG, "✅ SimpleGeospatialView configurado")
     }
 
     private fun handleFrameUpdate(session: Session?, frame: Frame) {
@@ -335,6 +284,7 @@ class SimpleGeospatialView(
             Log.d(TAG, "✅ Condições OK para colocar modelos!")
             Log.d(TAG, "   📍 GPS: Lat=${pose.latitude}, Lon=${pose.longitude}")
             Log.d(TAG, "   📏 Precisão: ${pose.horizontalAccuracy}m")
+            Log.d(TAG, "   📦 Modelos na fila: ${modelsToPlace.size}")
             
             // Colocar modelos!
             placeQueuedModels(earth)
@@ -359,12 +309,16 @@ class SimpleGeospatialView(
     }
 
     private fun notifyModelPlaced(modelPath: String, lat: Double, lon: Double) {
+        Log.d(TAG, "📢 Notificando Flutter sobre modelo colocado: $modelPath")
+        Log.d(TAG, "   MethodChannel: ${if (methodChannel != null) "✅ OK" else "❌ NULL"}")
+        
         mainHandler.post {
             methodChannel?.invokeMethod("onModelPlaced", mapOf(
                 "model" to modelPath,
                 "latitude" to lat,
                 "longitude" to lon
             ))
+            Log.d(TAG, "✅ Notificação enviada para Flutter!")
         }
     }
 
